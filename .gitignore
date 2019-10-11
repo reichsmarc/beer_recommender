@@ -3,3 +3,6 @@
 README.md
 recommender_demo
 *.json
+web_scraping/beer_advocate/.scrapy
+*.pyc
+*.json

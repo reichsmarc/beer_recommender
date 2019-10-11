@@ -66,6 +66,8 @@ class BeerAdvocateSpider(Spider):
     def parse_beer(self, response):
 
         beer_name = response.xpath('//div/h1/text()').extract_first()
+
+        # beer stats table
         soup = BeautifulSoup(response.text, 'lxml')
         stats = soup.findAll('dd', attrs={'class': 'beerstats'})
 
@@ -73,48 +75,81 @@ class BeerAdvocateSpider(Spider):
         if len(stats0a) == 2:
             style = stats0a[0].text
             style_ranking = stats0a[1].text
-        if len(stats0a) == 1:
+        elif len(stats0a) == 1:
             style = stats0a[0].text
+            style_ranking = None
+        else:
+            style = None
             style_ranking = None
 
         stats1b = stats[1].findAll('b')
-        abv = stats1b[0].text
+        if stats1b:
+            abv = stats1b[0].text
+        else:
+            abv = None
 
         stats2b = stats[2].findAll('b')
-        ba_score = stats2b[0].text
+        if stats2b:
+            ba_score = stats2b[0].text
+        else:
+            ba_score = None
 
         stats2a = stats[2].findAll('a')
-        overall_ranking = stats2a[0].text
+        if stats2a:
+            overall_ranking = stats2a[0].text
+        else:
+            overall_ranking = None
 
         stats3span = stats[3].findAll('span')
         r_avg = stats3span[0].text
         r_dev = stats3span[1].text
 
         stats4span = stats[4].findAll('span')
-        n_reviews = stats4span[0].text
+        if stats4span:
+            n_reviews = stats4span[0].text
+        else:
+            n_reviews = None
 
         stats5span = stats[5].findAll('span')
-        n_ratings = stats5span[0].text
+        if stats5span:
+            n_ratings = stats5span[0].text
+        else:
+            n_ratings = None
 
         stats6a = stats[6].findAll('a')
-        brewery = stats6a[0].text
+        if stats6a:
+            brewery = stats6a[0].text
+        else:
+            brewery = None
 
         stats7a = stats[7].findAll('a')
         if len(stats7a) == 2:
             state = stats7a[0].text
             country = stats7a[1].text
-        if len(stats7a) == 1:
+        elif len(stats7a) == 1:
             state = None
             country = stats7a[0].text
+        else:
+            state = None
+            country = None
 
         stats8span = stats[8].findAll('span')
-        availability = stats8span[0].text
+        if stats8span:
+            availability = stats8span[0].text
+        else:
+            availability = None
 
         stats9span = stats[9].findAll('span')
-        n_wants = stats9span[0].text
+        if stats9span:
+            n_wants = stats9span[0].text
+        else:
+            n_wants = None
 
         stats10span = stats[10].findAll('span')
-        n_gots = stats10span[0].text
+        if stats10span:
+            n_gots = stats10span[0].text
+        else:
+            n_gots = None
 
         results_dict = {
                         'beer_name': beer_name,
@@ -136,6 +171,8 @@ class BeerAdvocateSpider(Spider):
                         }
 
         yield results_dict
+
+        # TODO: get all ratings and reviews CLEANLY
 
         # for review in response.xpath('//div[@id="rating_fullview_container"]'):
         #     review_score = review.xpath('*//span[@class="BAscore_norm"]/text()').extract_first()
