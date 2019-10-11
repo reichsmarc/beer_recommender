@@ -11,8 +11,8 @@ class BeerAdvocateSpider(Spider):
     def start_requests(self):
         base_url = 'https://www.beeradvocate.com'
         start_href = '/beer/styles/'
-        response = requests.get(base_url + start_href)
-        soup = BeautifulSoup(response.content, 'lxml')
+        start_response = requests.get(base_url + start_href)
+        soup = BeautifulSoup(start_response.content, 'lxml')
         tags = soup.findAll('a', attrs={'href': re.compile('^/beer/styles/[\\d]')})
 
         style_dict = dict()
@@ -30,7 +30,7 @@ class BeerAdvocateSpider(Spider):
     def parse(self, response):
         # beer style page(s) have table of beer, brewery, abv, # ratings, and avg. rating
         raw = response.text
-        soup = BeautifulSoup(raw.content, 'lxml')
+        soup = BeautifulSoup(raw, 'lxml')
 
         table = soup.find('table')
         rows = table.findAll('tr')
@@ -66,12 +66,16 @@ class BeerAdvocateSpider(Spider):
     def parse_beer(self, response):
 
         beer_name = response.xpath('//div/h1/text()').extract_first()
-        soup = BeautifulSoup(beer_name.text, 'lxml')
+        soup = BeautifulSoup(response.text, 'lxml')
         stats = soup.findAll('dd', attrs={'class': 'beerstats'})
 
         stats0a = stats[0].findAll('a')
-        style = stats0a[0].text
-        style_ranking = stats0a[1].text
+        if len(stats0a) == 2:
+            style = stats0a[0].text
+            style_ranking = stats0a[1].text
+        if len(stats0a) == 1:
+            style = stats0a[0].text
+            style_ranking = None
 
         stats1b = stats[1].findAll('b')
         abv = stats1b[0].text
@@ -112,6 +116,27 @@ class BeerAdvocateSpider(Spider):
         stats10span = stats[10].findAll('span')
         n_gots = stats10span[0].text
 
+        results_dict = {
+                        'beer_name': beer_name,
+                        'style': style,
+                        'style_ranking': style_ranking,
+                        'abv': abv,
+                        'ba_score': ba_score,
+                        'overall_ranking': overall_ranking,
+                        'r_avg': r_avg,
+                        'r_dev': r_dev,
+                        'n_reviews': n_reviews,
+                        'n_ratings': n_ratings,
+                        'brewery': brewery,
+                        'state': state,
+                        'country': country,
+                        'availability': availability,
+                        'n_wants': n_wants,
+                        'n_gots': n_gots
+                        }
+
+        yield results_dict
+
         # for review in response.xpath('//div[@id="rating_fullview_container"]'):
         #     review_score = review.xpath('*//span[@class="BAscore_norm"]/text()').extract_first()
         #     review_deviation = review.xpath('*//span[@style="color:#006600;"]/text()').extract_first()
@@ -150,9 +175,9 @@ class BeerAdvocateSpider(Spider):
         #     'tase': taste,
         #     'feel': feel,
         #     'overall': overall
+        #     'overall': overall
         #     }
 
         next_review = response.xpath('//div/span/*[contains(.,"next")]/@href').extract_first()
-        reviewcount = int(next_review.split('start=')[1]) # URL reviewcount on next button
-        if (reviewcount < 500): # when next button >= max, next page is not returned
+        if next_review:
             yield response.follow(next_review, self.parse_beer)
