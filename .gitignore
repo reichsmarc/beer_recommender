@@ -1,2 +1,4 @@
 *.ipynb
 .ipynb_checkpoints
+README.md
+recommender_demo
