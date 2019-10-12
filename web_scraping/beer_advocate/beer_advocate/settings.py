@@ -13,6 +13,7 @@ BOT_NAME = 'beer_advocate'
 
 SPIDER_MODULES = ['beer_advocate.spiders']
 NEWSPIDER_MODULE = 'beer_advocate.spiders'
+CLOSESPIDER_ERRORCOUNT = 0
 
 
 # Crawl responsibly by identifying yourself (and your website) on the user-agent

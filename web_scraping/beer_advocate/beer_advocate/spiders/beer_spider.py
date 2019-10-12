@@ -2,6 +2,9 @@ import requests
 import re
 from bs4 import BeautifulSoup
 from scrapy import Spider, Request
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class BeerAdvocateSpider(Spider):
@@ -28,7 +31,6 @@ class BeerAdvocateSpider(Spider):
             yield Request(url, callback=self.parse)
 
     def parse(self, response):
-        # beer style page(s) have table of beer, brewery, abv, # ratings, and avg. rating
         raw = response.text
         soup = BeautifulSoup(raw, 'lxml')
 
@@ -65,6 +67,7 @@ class BeerAdvocateSpider(Spider):
 
     def parse_beer(self, response):
 
+        url = response.request.url
         beer_name = response.xpath('//div/h1/text()').extract_first()
 
         # beer stats table
@@ -102,7 +105,7 @@ class BeerAdvocateSpider(Spider):
 
         stats3span = stats[3].findAll('span')
         r_avg = stats3span[0].text
-        r_dev = stats3span[1].text
+        pdev = stats3span[1].text
 
         stats4span = stats[4].findAll('span')
         if stats4span:
@@ -151,69 +154,89 @@ class BeerAdvocateSpider(Spider):
         else:
             n_gots = None
 
-        results_dict = {
-                        'beer_name': beer_name,
-                        'style': style,
-                        'style_ranking': style_ranking,
-                        'abv': abv,
-                        'ba_score': ba_score,
-                        'overall_ranking': overall_ranking,
-                        'r_avg': r_avg,
-                        'r_dev': r_dev,
-                        'n_reviews': n_reviews,
-                        'n_ratings': n_ratings,
-                        'brewery': brewery,
-                        'state': state,
-                        'country': country,
-                        'availability': availability,
-                        'n_wants': n_wants,
-                        'n_gots': n_gots
-                        }
+        div = soup.findAll('div', attrs={'id': 'rating_fullview_container'})
+        for review in div:
+            r1 = review.findAll('span', attrs={'class': 'BAscore_norm'})
+            if r1:
+                ba_score_norm = r1[0].text
+            else:
+                ba_score_norm = None
 
-        yield results_dict
+            r2 = review.findAll('span', attrs={'class': 'rAvg_norm'})
+            if r2:
+                r_avg_norm = r2[0].text
+            else:
+                r_avg_norm = None
 
-        # TODO: get all ratings and reviews CLEANLY
+            r3 = review.findAll('span', attrs={'style': re.compile(r'^color:#\d+')})
+            if r3:
+                r_dev_rating = r3[0].text
+            else:
+                r_dev_rating = None
 
-        # for review in response.xpath('//div[@id="rating_fullview_container"]'):
-        #     review_score = review.xpath('*//span[@class="BAscore_norm"]/text()').extract_first()
-        #     review_deviation = review.xpath('*//span[@style="color:#006600;"]/text()').extract_first()
-        #     username = review.xpath('*//span[@class="muted"]/a[@class="username"]/text()').extract_first()
-        #     date = review.xpath('*//span[@class="muted"]/a[2]/text()').extract_first()
-        #     review_text = review.xpath('*[@id="rating_fullview_content_2"]/text()').extract()
-        #
-        #     muted = review.xpath('*//span[@class="muted"]/text()').extract_first()
-        #     try:
-        #         muted = muted.split('|')
-        #         look = muted[0]
-        #         smell = muted[1]
-        #         taste = muted[2]
-        #         feel = muted[3]
-        #         overall = muted[4]
-        #     except:
-        #         look = None
-        #         smell = None
-        #         taste = None
-        #         feel = None
-        #         overall = None
-        #
-        # yield {
-        #     'beername': beer_name,
-        #     'brewery': brewery,
-        #     'style': style,
-        #     'abv': abv,
-        #     'avgreviewscore': avg_review_score,
-        #     'reviewscore': review_score,
-        #     'reviewdeviation': review_deviation,
-        #     'reviewtext': review_text,
-        #     'username': username,
-        #     'date': date,
-        #     'look': look,
-        #     'smell': smell,
-        #     'tase': taste,
-        #     'feel': feel,
-        #     'overall': overall
-        #     'overall': overall
-        #     }
+            muted = review.findAll('span', attrs={'class': re.compile('muted')})
+            if muted and '|' in muted[0].text:
+                try:
+                    ratings_bar = muted[0].text
+                except IndexError:
+                    ratings_bar = None
+
+                try:
+                    characters = muted[1].text
+                except IndexError:
+                    characters = None
+
+                try:
+                    username = muted[2].find('a').text
+                except IndexError:
+                    username = None
+
+                try:
+                    review_date = muted[2].findAll('a', attrs={'href': re.compile('#review')})[0].text
+                except IndexError:
+                    review_date = None
+            else:
+                ratings_bar = None
+                characters = None
+                username = None
+                review_date = None
+
+            try:
+                all_text = str(review).split('<br/>')
+                review_text = [x for x in all_text if '<' not in x]
+                review_text = ''.join([x for x in review_text if x != ''])
+            except IndexError:
+                review_text = None
+
+            results_dict = {
+                            'url': url,
+                            'beer_name': beer_name,
+                            'style': style,
+                            'style_ranking': style_ranking,
+                            'abv': abv,
+                            'ba_score': ba_score,
+                            'overall_ranking': overall_ranking,
+                            'r_avg': r_avg,
+                            'pdev': pdev,
+                            'n_reviews': n_reviews,
+                            'n_ratings': n_ratings,
+                            'brewery': brewery,
+                            'state': state,
+                            'country': country,
+                            'availability': availability,
+                            'n_wants': n_wants,
+                            'n_gots': n_gots,
+                            'BAscore_norm': ba_score_norm,
+                            'rAvg_norm': r_avg_norm,
+                            'r_dev_rating': r_dev_rating,
+                            'ratings_bar': ratings_bar,
+                            'characters': characters,
+                            'username': username,
+                            'review_date': review_date,
+                            'review_text': review_text
+                            }
+
+            yield results_dict
 
         next_review = response.xpath('//div/span/*[contains(.,"next")]/@href').extract_first()
         if next_review:
